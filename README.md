@@ -1,15 +1,33 @@
 # Slack Claude Support Bot
 
-A Slack bot that responds to @mentions using Claude AI. Uses Socket Mode so it can run behind NAT (perfect for Raspberry Pi deployment).
+A Slack bot that responds to @mentions using Claude Code CLI. Uses Socket Mode so it can run behind NAT (perfect for Raspberry Pi deployment). Uses your existing Claude Max/Pro subscription instead of requiring a separate API key.
 
 ## Features
 
 - Responds to @mentions in any channel
 - Handles direct messages
-- Shows thinking indicator while processing
+- Shows thinking indicator while processing (requires `reactions:write` scope)
 - Replies in threads to keep channels tidy
+- Uses Claude Code CLI (no API key needed)
 
-## Setup
+## Prerequisites
+
+- [Claude Code CLI](https://github.com/anthropics/claude-code) installed and authenticated
+- Node.js 18+
+- A Slack workspace where you can create apps
+
+## Quick Start
+
+```bash
+git clone https://github.com/WPcare/slack-claude-support.git
+cd slack-claude-support
+npm install
+cp .env.example .env
+# Edit .env with your Slack tokens
+npm start
+```
+
+## Slack App Setup
 
 ### 1. Create a Slack App
 
@@ -17,64 +35,88 @@ A Slack bot that responds to @mentions using Claude AI. Uses Socket Mode so it c
 2. Click "Create New App" → "From scratch"
 3. Name it (e.g., "Claude Support") and select your workspace
 
-### 2. Configure Bot Permissions
+### 2. Enable Socket Mode
 
-Go to **OAuth & Permissions** and add these Bot Token Scopes:
-- `app_mentions:read` - Read @mentions
-- `chat:write` - Send messages
-- `im:history` - Read DM history
-- `im:read` - View DM info
-- `im:write` - Send DMs
-- `reactions:read` - Read reactions
-- `reactions:write` - Add reactions
+1. Go to **Settings → Socket Mode**
+2. Toggle Socket Mode **ON**
+3. Create an App-Level Token:
+   - Click "Generate Token and Scopes"
+   - Name: `socket`
+   - Add scope: `connections:write`
+   - Click Generate
+4. Copy the `xapp-...` token
 
-### 3. Enable Socket Mode
+### 3. Configure Bot Permissions
 
-1. Go to **Socket Mode** in the sidebar
-2. Enable Socket Mode
-3. Create an App-Level Token with `connections:write` scope
-4. Save the token (starts with `xapp-`)
+Go to **Features → OAuth & Permissions** and add these Bot Token Scopes:
+
+| Scope | Purpose |
+|-------|---------|
+| `app_mentions:read` | Receive @mentions |
+| `chat:write` | Send messages |
+| `im:history` | Read DM history |
+| `im:read` | View DM info |
+| `im:write` | Send DMs |
+| `reactions:write` | Add thinking emoji (optional) |
 
 ### 4. Enable Events
 
-Go to **Event Subscriptions**:
-1. Enable Events
-2. Subscribe to bot events:
+Go to **Features → Event Subscriptions**:
+1. Toggle **Enable Events** ON
+2. Under "Subscribe to bot events" click "Add Bot User Event"
+3. Add these events:
    - `app_mention`
    - `message.im`
+4. Click **Save Changes**
 
 ### 5. Install to Workspace
 
-1. Go to **Install App**
+1. Go to **Settings → Install App**
 2. Click "Install to Workspace"
-3. Copy the Bot User OAuth Token (starts with `xoxb-`)
+3. Authorize the permissions
+4. Copy the **Bot User OAuth Token** (starts with `xoxb-`)
 
 ### 6. Get Signing Secret
 
-Go to **Basic Information** → App Credentials → Copy Signing Secret
+Go to **Settings → Basic Information** → App Credentials → Copy **Signing Secret**
 
 ### 7. Configure Environment
 
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your tokens:
-```
-SLACK_BOT_TOKEN=xoxb-...
-SLACK_SIGNING_SECRET=...
-SLACK_APP_TOKEN=xapp-...
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-### 8. Install & Run
+Create a `.env` file:
 
 ```bash
-npm install
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_SIGNING_SECRET=your-signing-secret
+SLACK_APP_TOKEN=xapp-your-app-token
+```
+
+### 8. Run
+
+```bash
 npm start
 ```
 
+## Usage
+
+- **@mention in channel**: `@YourBot What is the capital of France?`
+- **Direct message**: Just DM the bot directly
+
+## How It Works
+
+Instead of calling the Anthropic API directly, this bot shells out to the Claude Code CLI (`claude -p`). This means:
+
+- No API key required
+- Uses your existing Claude Max/Pro subscription
+- Claude Code must be installed and authenticated on the machine running the bot
+
 ## Raspberry Pi Deployment
+
+### Install Claude Code on Pi
+
+```bash
+npm install -g @anthropic-ai/claude-code
+claude  # Follow prompts to authenticate
+```
 
 ### Install Node.js on Pi
 
@@ -86,11 +128,11 @@ sudo apt-get install -y nodejs
 ### Clone and Setup
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/slack-claude-support.git
+git clone https://github.com/WPcare/slack-claude-support.git
 cd slack-claude-support
 npm install
 cp .env.example .env
-nano .env  # Add your tokens
+nano .env  # Add your Slack tokens
 ```
 
 ### Run with PM2 (keeps it running)
@@ -105,14 +147,43 @@ pm2 startup  # Follow instructions to auto-start on boot
 ### Monitor
 
 ```bash
-pm2 logs slack-claude
-pm2 status
+pm2 logs slack-claude  # View logs
+pm2 status             # Check status
+pm2 restart slack-claude  # Restart
 ```
 
-## Usage
+## Troubleshooting
 
-- **@mention in channel**: `@Claude Support What is the weather in Manila?`
-- **Direct message**: Just send a DM to the bot
+### Bot not receiving events
+
+1. Verify Event Subscriptions are enabled and saved
+2. Check that `app_mention` is listed under bot events
+3. Try reinstalling the app (OAuth & Permissions → Reinstall)
+4. Invite the bot to the channel: `/invite @YourBot`
+
+### "missing_scope" errors
+
+Add the required scope in OAuth & Permissions, then reinstall the app.
+
+### Claude CLI not responding
+
+Test directly: `claude -p "hello" --max-turns 1`
+
+If that works but the bot doesn't, check that Claude Code is authenticated for the user running the bot.
+
+## Project Structure
+
+```
+slack-claude-support/
+├── src/
+│   └── index.js      # Main bot application
+├── .env              # Environment variables (not committed)
+├── .env.example      # Template for .env
+├── .gitignore
+├── CLAUDE.md         # Development notes
+├── package.json
+└── README.md
+```
 
 ## License
 
